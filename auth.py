@@ -1,5 +1,5 @@
 import hashlib
-from database import get_connection
+from database import get_connection, write_audit
 
 
 def hash_password(password):
@@ -15,6 +15,7 @@ def register(username, password):
             (username, hash_password(password), "student")
         )
         conn.commit()
+        write_audit(username, "REGISTER", "New student account")
         return True
     except Exception:
         return False
@@ -31,4 +32,6 @@ def login(username, password):
     )
     user = c.fetchone()
     conn.close()
+    if user:
+        write_audit(username, "LOGIN", f"Role: {user[3]}")
     return user

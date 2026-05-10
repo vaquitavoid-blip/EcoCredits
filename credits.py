@@ -15,6 +15,7 @@ def total_student_credits(subject_data, achievement_data):
     total = 0
     for s, g in subject_data:
         total += calculate_subject_credits(s, g)
-    for (level,) in achievement_data:
+    for row in achievement_data:
+        level = row[0] if isinstance(row, (list, tuple)) else row
         total += calculate_achievement_credits(level)
     return total

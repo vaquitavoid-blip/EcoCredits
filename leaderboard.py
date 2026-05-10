@@ -5,11 +5,16 @@ from credits import total_student_credits
 
 
 def leaderboard_page():
-    st.title("🏆 Global Leaderboard")
-    st.caption("Rankings based on total EcoCredits earned.")
+    st.markdown(
+        "<h1 style='font-family:Orbitron,monospace;color:#00d4ff;"
+        "text-shadow:0 0 20px rgba(0,212,255,0.5);'>🏆 LEADERBOARD</h1>",
+        unsafe_allow_html=True
+    )
+    st.caption("Global rankings based on verified EcoCredits.")
+    st.markdown("---")
 
     conn = get_connection()
-    c = conn.cursor()
+    c    = conn.cursor()
 
     students = c.execute(
         "SELECT id, username FROM users WHERE role='student'"
@@ -17,29 +22,27 @@ def leaderboard_page():
 
     board = []
     for sid, username in students:
-        student_subjects = c.execute(
+        s_sub = c.execute(
             "SELECT subject, grade FROM subjects WHERE user_id=?", (sid,)
         ).fetchall()
-        student_achievements = c.execute(
+        s_ach = c.execute(
             "SELECT level FROM achievements WHERE user_id=? AND approved=1", (sid,)
         ).fetchall()
-        total = total_student_credits(student_subjects, student_achievements)
-        board.append([username, total])
+        total = total_student_credits(s_sub, s_ach)
+        board.append([username, total, len(s_sub), len(s_ach)])
 
     conn.close()
-
     board.sort(key=lambda x: x[1], reverse=True)
 
     if not board:
         st.info("No students yet.")
         return
 
-    # Add rank + medal
-    rows = []
     medals = ["🥇", "🥈", "🥉"]
-    for i, (name, credits) in enumerate(board):
-        medal = medals[i] if i < 3 else f"#{i+1}"
-        rows.append([medal, name, credits])
+    rows   = []
+    for i, (name, credits, nsub, nach) in enumerate(board):
+        rank = medals[i] if i < 3 else f"#{i+1}"
+        rows.append([rank, name, credits, nsub, nach])
 
-    df = pd.DataFrame(rows, columns=["Rank", "Student", "Credits"])
+    df = pd.DataFrame(rows, columns=["Rank","Student","Credits","Subjects","Achievements"])
     st.dataframe(df, use_container_width=True, hide_index=True)

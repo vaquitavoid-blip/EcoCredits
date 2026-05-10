@@ -1,6 +1,7 @@
 subjects = {
     "Add Maths":        1.3,
     "Extended Maths":   1.2,
+    "Combined Science": 1.2,
     "FLE":              1.0,
     "ESL":              0.9,
     "Physics":          1.3,
@@ -12,11 +13,7 @@ subjects = {
     "Art and Design":   0.8,
     "DT":               1.0,
     "Accounting":       1.1,
-    "History":          1.0,
-    "Geography":        1.0,
-    "Sociology":        0.9,
-    "Literature":       1.0,
-    "Psychology":       1.0,
+
 }
 
 grades = {
@@ -34,3 +31,6 @@ levels = {
     "National":      35,
     "International": 50,
 }
+
+MAX_UPLOADS_PER_DAY = 3
+AUTO_APPROVE_LIMIT  = 5
