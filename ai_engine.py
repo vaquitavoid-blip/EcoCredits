@@ -8,10 +8,7 @@ import pytesseract
 from bs4 import BeautifulSoup
 from PIL import Image, ImageFilter, ImageEnhance, ImageOps
 
-# ─────────────────────────────────────────────
-# TESSERACT PATH
-# ─────────────────────────────────────────────
-
+# ── Tesseract path ────────────────────────────────────────────────────────────
 if os.name == "nt":
     pytesseract.pytesseract.tesseract_cmd = (
         r"C:\Program Files\Tesseract-OCR\tesseract.exe"
@@ -21,44 +18,41 @@ else:
     if cloud_path:
         pytesseract.pytesseract.tesseract_cmd = cloud_path
 
-# ─────────────────────────────────────────────
-# IMAGE HASH
-# ─────────────────────────────────────────────
-
+# ── Image hash ────────────────────────────────────────────────────────────────
 def get_image_hash(image_path):
     with open(image_path, "rb") as f:
         return hashlib.md5(f.read()).hexdigest()
 
-# ─────────────────────────────────────────────
-# IMAGE PREPROCESSING — 5 variants
-# ─────────────────────────────────────────────
-
+# ── Preprocessing variants ────────────────────────────────────────────────────
 def preprocess_variants(image):
     variants = []
     gray = image.convert("L")
 
-    # V1: high contrast + sharpen
+    # Original gray — no processing (sometimes cleanest)
+    variants.append(gray)
+
+    # High contrast + sharpen
     v1 = ImageEnhance.Contrast(gray).enhance(3.0)
     v1 = v1.filter(ImageFilter.SHARPEN)
     v1 = v1.resize((v1.width * 2, v1.height * 2), Image.LANCZOS)
     variants.append(v1)
 
-    # V2: histogram equalize
+    # Histogram equalize
     v2 = ImageOps.equalize(gray)
     v2 = v2.resize((v2.width * 2, v2.height * 2), Image.LANCZOS)
     variants.append(v2)
 
-    # V3: medium contrast
+    # Medium contrast
     v3 = ImageEnhance.Contrast(gray).enhance(1.8)
-    v3 = ImageEnhance.Sharpness(v3).enhance(2.0)
+    v3 = ImageEnhance.Sharpness(v3).enhance(2.5)
     v3 = v3.resize((v3.width * 2, v3.height * 2), Image.LANCZOS)
     variants.append(v3)
 
-    # V4: raw upscale only
+    # Raw upscale
     v4 = gray.resize((gray.width * 2, gray.height * 2), Image.LANCZOS)
     variants.append(v4)
 
-    # V5: inverted (dark background certs)
+    # Inverted (dark bg certificates)
     v5 = ImageOps.invert(gray)
     v5 = ImageEnhance.Contrast(v5).enhance(2.5)
     v5 = v5.resize((v5.width * 2, v5.height * 2), Image.LANCZOS)
@@ -66,25 +60,19 @@ def preprocess_variants(image):
 
     return variants
 
-# ─────────────────────────────────────────────
-# OCR — 5 variants × 6 PSM modes
-# ─────────────────────────────────────────────
-
-PSM_CONFIGS = [
-    "--psm 6",
-    "--psm 4",
-    "--psm 3",
-    "--psm 11",
-    "--psm 12",
-    "--psm 1",
-]
+# ── OCR ───────────────────────────────────────────────────────────────────────
+PSM_CONFIGS = ["--psm 6", "--psm 4", "--psm 3", "--psm 11", "--psm 12", "--psm 1"]
 
 
 def extract_text(image_path):
+    """
+    Runs all PSM configs on all image variants.
+    Deduplicates lines and returns combined output.
+    """
     image    = Image.open(image_path)
     variants = preprocess_variants(image)
 
-    seen_lines    = set()
+    seen_lines     = set()
     combined_lines = []
 
     for variant in variants:
@@ -101,10 +89,13 @@ def extract_text(image_path):
 
     return "\n".join(combined_lines)
 
-# ─────────────────────────────────────────────
-# TITLE EXTRACTION
-# ─────────────────────────────────────────────
 
+def extract_all_lines(image_path):
+    """Returns every unique non-empty OCR line — used for manual grade assignment."""
+    text = extract_text(image_path)
+    return [l.strip() for l in text.split("\n") if l.strip()]
+
+# ── Title extraction ──────────────────────────────────────────────────────────
 def extract_best_title(text):
     lines = [l.strip() for l in text.split("\n") if l.strip()]
     if not lines:
@@ -134,10 +125,7 @@ def extract_best_title(text):
 
     return max(lines[:15], key=len)
 
-# ─────────────────────────────────────────────
-# SUBJECT ALIASES
-# ─────────────────────────────────────────────
-
+# ── Subject aliases ───────────────────────────────────────────────────────────
 SUBJECT_ALIASES = {
     "Combined Science": ["combined science", "science (combined)", "sciences"],
     "Add Maths":        ["additional mathematics", "additional maths", "add maths", "add math"],
@@ -162,10 +150,7 @@ SUBJECT_ALIASES = {
 
 ALL_SUBJECTS = list(SUBJECT_ALIASES.keys())
 
-# ─────────────────────────────────────────────
-# GRADE DETECTION
-# ─────────────────────────────────────────────
-
+# ── Grade detection ───────────────────────────────────────────────────────────
 def detect_grades(text):
     detected = {}
     clean    = text.lower()
@@ -198,10 +183,7 @@ def detect_grades(text):
 
     return detected
 
-# ─────────────────────────────────────────────
-# CATEGORY DETECTION
-# ─────────────────────────────────────────────
-
+# ── Category detection ────────────────────────────────────────────────────────
 def detect_category(text):
     t = text.lower()
     mapping = {
@@ -216,10 +198,7 @@ def detect_category(text):
     best   = max(scores, key=scores.get)
     return best if scores[best] > 0 else "Other"
 
-# ─────────────────────────────────────────────
-# TEACHER ASSIGNMENT
-# ─────────────────────────────────────────────
-
+# ── Teacher assignment ────────────────────────────────────────────────────────
 def assign_teacher(category):
     mapping = {
         "Science":       "science_teacher",
@@ -232,10 +211,7 @@ def assign_teacher(category):
     }
     return mapping.get(category, "class_teacher")
 
-# ─────────────────────────────────────────────
-# LEVEL KEYWORDS
-# ─────────────────────────────────────────────
-
+# ── Level keywords ────────────────────────────────────────────────────────────
 LEVEL_KEYWORDS = {
     "International": [
         "international","global","worldwide","world championship",
@@ -261,10 +237,7 @@ LEVEL_KEYWORDS = {
     ],
 }
 
-# ─────────────────────────────────────────────
-# MULTI-PLATFORM SEARCH
-# ─────────────────────────────────────────────
-
+# ── Search ────────────────────────────────────────────────────────────────────
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -278,10 +251,8 @@ HEADERS = {
 def fetch_search(base_url, query, timeout=10):
     try:
         r = requests.get(
-            base_url,
-            params={"q": query},
-            headers=HEADERS,
-            timeout=timeout
+            base_url, params={"q": query},
+            headers=HEADERS, timeout=timeout
         )
         soup = BeautifulSoup(r.text, "html.parser")
         return soup.get_text(" ", strip=True).lower()
@@ -290,14 +261,12 @@ def fetch_search(base_url, query, timeout=10):
 
 
 def multi_search(query):
-    """Search Google + Bing + DuckDuckGo and return combined text + log."""
     platforms = [
         ("https://www.google.com/search",     "Google"),
         ("https://www.bing.com/search",       "Bing"),
         ("https://html.duckduckgo.com/html/", "DuckDuckGo"),
     ]
-    combined = ""
-    log      = []
+    combined, log = "", []
     for url, name in platforms:
         text = fetch_search(url, query)
         if text:
@@ -307,15 +276,12 @@ def multi_search(query):
             log.append(f"  ⚠️ {name}: no results")
     return combined, log
 
-# ─────────────────────────────────────────────
-# ACHIEVEMENT ANALYSIS
-# ─────────────────────────────────────────────
-
+# ── Achievement analysis ──────────────────────────────────────────────────────
 def analyze_achievement_google(title):
     log         = []
     title_lower = title.lower().strip()
 
-    # Step 1 — direct level from title
+    # Direct level from title
     direct_level = None
     if any(k in title_lower for k in ["international","global","world"]):
         direct_level = "International"
@@ -323,32 +289,22 @@ def analyze_achievement_google(title):
         direct_level = "National"
     elif any(k in title_lower for k in ["state level","state championship","state competition"]):
         direct_level = "State"
-    elif any(k in title_lower for k in [
-        "regional","district","zonal","inter-school",
-        "interschool","inter school","zone"
-    ]):
+    elif any(k in title_lower for k in ["regional","district","zonal","inter-school","interschool","inter school","zone"]):
         direct_level = "District"
     elif any(k in title_lower for k in ["school","intra-school","house"]):
         direct_level = "School"
 
     if direct_level:
         log.append(f"⚡ Level found directly in title: **{direct_level}**")
-        log.append("Web search skipped — title is self-explanatory.")
         return {
             "urls_found": [], "level": direct_level,
             "confidence": "High", "is_irrational": False, "log": log
         }
 
-    # Step 2 — multi-platform search
-    log.append("🔍 No direct level in title — searching web...")
-    queries = [
-        title,
-        f"{title} award competition",
-        f"{title} certificate recognition",
-        f'"{title}"',
-    ]
-
+    log.append("🔍 Searching Google + Bing + DuckDuckGo...")
+    queries  = [title, f"{title} award competition", f"{title} certificate", f'"{title}"']
     combined = ""
+
     for q in queries:
         log.append(f"\n🔍 **{q}**")
         text, plog = multi_search(q)
@@ -358,13 +314,11 @@ def analyze_achievement_google(title):
 
     combined = combined.lower()
 
-    # Step 3 — proximity scoring
     WINDOW          = 400
     title_positions = [m.start() for m in re.finditer(re.escape(title_lower), combined)]
-    log.append(f"\n📍 Title found at **{len(title_positions)}** position(s) in results")
+    log.append(f"\n📍 Title found at **{len(title_positions)}** position(s)")
 
     level_scores = {lv: 0 for lv in LEVEL_KEYWORDS}
-
     if title_positions:
         for pos in title_positions:
             nearby = combined[max(0, pos - WINDOW): pos + WINDOW]
@@ -373,19 +327,17 @@ def analyze_achievement_google(title):
                     if kw in nearby:
                         level_scores[lv] += 1
     else:
-        log.append("⚠️ Title not literal in results — using full-text fallback")
         for lv, kws in LEVEL_KEYWORDS.items():
             level_scores[lv] = sum(kw in combined for kw in kws)
 
     log.append(f"📊 Scores: {level_scores}")
-
-    best_level   = max(level_scores, key=level_scores.get)
-    best_score   = level_scores[best_level]
+    best_level    = max(level_scores, key=level_scores.get)
+    best_score    = level_scores[best_level]
     is_irrational = len(combined.strip()) < 300
 
     if is_irrational:
         level, confidence = "School", "Low"
-        log.append("❌ No results on any platform — sending to teacher.")
+        log.append("❌ No results — sending to teacher.")
     elif best_score >= 2:
         level, confidence = best_level, "High"
         log.append(f"✅ Strong match → **{level}** (High)")
