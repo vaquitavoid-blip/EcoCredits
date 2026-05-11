@@ -18,6 +18,16 @@ st.set_page_config(
 
 st.markdown(css, unsafe_allow_html=True)
 
+# ONLY ADDED THIS BLOCK
+st.markdown("""
+<style>
+[data-testid="collapsedControl"] {
+    display: block !important;
+    visibility: visible !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 if "user" not in st.session_state:
     st.session_state.user = None
 if "page" not in st.session_state:
