@@ -6,6 +6,12 @@ from teacher import teacher_panel
 from admin import admin_panel
 from leaderboard import leaderboard_page
 from style import css
+import streamlit as st
+
+st.set_page_config(
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
 setup_database()
 
